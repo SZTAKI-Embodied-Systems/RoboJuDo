@@ -29,6 +29,7 @@ import numpy as np
 
 __all__ = [
     "MotionPlayer",
+    "MotionManager",
     "compute_yaw_offset_np",
     "apply_heading_offset_np",
     "_extract_yaw_quat_np",
@@ -123,15 +124,18 @@ class MotionPlayer:
 
     def __init__(
         self,
-        motion_file: str,
+        motion_source: str | dict,
         motion_index: int = 0,
         control_dt: float = 0.02,
     ):
         import torch
 
         self._torch = torch
-        motion_file = str(motion_file)
-        data = torch.load(motion_file, map_location="cpu", weights_only=False)
+        if isinstance(motion_source, dict):
+            data = motion_source
+        else:
+            motion_file = str(motion_source)
+            data = torch.load(motion_file, map_location="cpu", weights_only=False)
 
         if _is_cache_file(data):
             self._load_cache(data)
@@ -309,3 +313,69 @@ class MotionPlayer:
             f"{nf} source frames @ {1.0 / src_dt:.1f} Hz -> "
             f"{num_ctrl_frames} resampled frames @ {1.0 / control_dt:.0f} Hz"
         )
+
+
+class MotionManager:
+    """Manage runtime switching across one or more motion clips.
+
+    For packaged .pt libraries (with ``length_starts``), all clips are loaded
+    and resampled up-front so runtime switching is instantaneous.
+    """
+
+    def __init__(self, motion_file: str, control_dt: float = 0.02, motion_index: int = 0):
+        import torch
+
+        motion_file = str(motion_file)
+        data = torch.load(motion_file, map_location="cpu", weights_only=False)
+
+        if _is_cache_file(data):
+            self._players = [MotionPlayer(data, motion_index=0, control_dt=control_dt)]
+            self._source_type = "cache"
+        elif "length_starts" in data:
+            num_motions = int(data["length_starts"].shape[0])
+            self._players = [
+                MotionPlayer(data, motion_index=i, control_dt=control_dt)
+                for i in range(num_motions)
+            ]
+            self._source_type = "library"
+        else:
+            self._players = [MotionPlayer(data, motion_index=0, control_dt=control_dt)]
+            self._source_type = "single"
+
+        if len(self._players) == 0:
+            raise ValueError("MotionManager initialisation failed: no playable motions")
+
+        self._active_index = int(np.clip(motion_index, 0, len(self._players) - 1))
+
+    @property
+    def num_motions(self) -> int:
+        return len(self._players)
+
+    @property
+    def active_index(self) -> int:
+        return self._active_index
+
+    @property
+    def active_player(self) -> MotionPlayer:
+        return self._players[self._active_index]
+
+    @property
+    def source_type(self) -> str:
+        return self._source_type
+
+    def set_active_index(self, motion_index: int) -> bool:
+        """Set active clip index with wrap-around semantics.
+
+        Returns True if active clip changed.
+        """
+        if self.num_motions <= 0:
+            return False
+        new_index = int(motion_index) % self.num_motions
+        if new_index == self._active_index:
+            return False
+        self._active_index = new_index
+        return True
+
+    def switch_relative(self, step: int) -> bool:
+        """Move active clip by ``step`` (supports negative values)."""
+        return self.set_active_index(self._active_index + int(step))

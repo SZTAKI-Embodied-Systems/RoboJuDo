@@ -108,6 +108,56 @@ class RlPipeline(Pipeline):
         if hasattr(inner, "set_default_pose_mode"):
             inner.set_default_pose_mode(enabled)
 
+    def _get_default_pose_mode(self) -> bool:
+        """Return True if the inner policy is in default-pose mode."""
+        inner = self._inner_policy()
+        if not hasattr(inner, "is_default_pose_mode"):
+            return False
+        return bool(inner.is_default_pose_mode())
+
+    def _handle_motion_switch_command(self, command: str) -> bool:
+        """Handle MOTION_NEXT / MOTION_PREV / MOTION_SET,index commands.
+
+        Returns True if *command* was recognised as a motion-switch command.
+        """
+        if command == "[MOTION_NEXT]":
+            mode = "next"
+            value = None
+        elif command == "[MOTION_PREV]":
+            mode = "prev"
+            value = None
+        elif command.startswith("[MOTION_SET],"):
+            mode = "set"
+            value = command.split(",", 1)[1]
+        else:
+            return False
+
+        inner = self._inner_policy()
+        if not hasattr(inner, "switch_motion_relative") or not hasattr(inner, "switch_motion_index"):
+            logger.info(f"Ignoring {command}: active policy does not support runtime motion switching")
+            return True
+
+        if not self._get_default_pose_mode():
+            logger.info(f"Ignoring {command}: motion switching is only allowed while stationary")
+            return True
+
+        switched = False
+        if mode == "next":
+            switched = bool(inner.switch_motion_relative(1))
+        elif mode == "prev":
+            switched = bool(inner.switch_motion_relative(-1))
+        else:
+            try:
+                motion_index = int(value)
+            except (TypeError, ValueError):
+                logger.warning(f"Ignoring malformed motion command: {command}")
+                return True
+            switched = bool(inner.switch_motion_index(motion_index))
+
+        if switched:
+            logger.info(f"{command} — motion selected (waiting for [MOTION_RESET] / [MOTION_FADE_IN])")
+        return True
+
     def reset(self):
         logger.info("Pipeline reset")
         self.timestep = 0
@@ -150,6 +200,8 @@ class RlPipeline(Pipeline):
         self.timestep += 1
         commands = ctrl_data.get("COMMANDS", [])
         for command in commands:
+            if self._handle_motion_switch_command(command):
+                continue
             match command:
                 case "[SHUTDOWN]":
                     logger.warning("Emergency shutdown!")

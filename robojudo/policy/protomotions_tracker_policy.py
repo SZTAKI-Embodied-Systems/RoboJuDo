@@ -33,7 +33,7 @@ from robojudo.policy import Policy, policy_registry
 from robojudo.policy.policy_cfgs import PolicyCfg
 from robojudo.tools.tool_cfgs import DoFConfig
 from robojudo.utils.motion_utils import (
-    MotionPlayer,
+    MotionManager,
     _extract_yaw_quat_np,
     apply_heading_offset_np,
     compute_yaw_offset_np,
@@ -101,9 +101,13 @@ class ProtoMotionsTrackerPolicy(Policy):
             raise ValueError("ProtoMotionsTrackerPolicyCfg must set motion_path")
         motion_index = getattr(cfg_policy, "motion_index", 0)
         timing = self._meta["timing"]
-        self._player = MotionPlayer(
-            motion_path, motion_index=motion_index, control_dt=timing["control_dt"]
+        self._motion_manager = MotionManager(
+            motion_path,
+            control_dt=timing["control_dt"],
+            motion_index=motion_index,
         )
+        self._player = self._motion_manager.active_player
+        self._pending_motion_clip = None
 
         # ONNX input config
         self._anchor_idx = robot_meta["anchor_body_index"]
@@ -169,7 +173,50 @@ class ProtoMotionsTrackerPolicy(Policy):
             self._motion_done = False
         logger.info(f"[TrackerPolicy] default_pose_mode={'ON' if enabled else 'OFF'}")
 
+    def is_default_pose_mode(self) -> bool:
+        return bool(self._default_pose_mode)
+
+    @property
+    def num_motion_clips(self) -> int:
+        return self._motion_manager.num_motions
+
+    @property
+    def current_motion_clip(self) -> int:
+        return self._motion_manager.active_index
+
+    @property
+    def selected_motion_clip(self) -> int:
+        """Return the currently selected clip (pending switch if present)."""
+        if self._pending_motion_clip is not None:
+            return self._pending_motion_clip
+        return self.current_motion_clip
+
+    def switch_motion_relative(self, step: int) -> bool:
+        return self._switch_motion_index(self.selected_motion_clip + int(step))
+
+    def switch_motion_index(self, motion_index: int) -> bool:
+        return self._switch_motion_index(int(motion_index))
+
+    def _switch_motion_index(self, motion_index: int) -> bool:
+        if self._motion_manager.num_motions <= 1:
+            logger.info("[TrackerPolicy] Motion switch ignored: only one motion clip available")
+            return False
+
+        target_index = int(motion_index) % self._motion_manager.num_motions
+        if target_index == self.selected_motion_clip:
+            return False
+
+        self._pending_motion_clip = target_index
+        logger.info(
+            f"[TrackerPolicy] Selected motion clip {self.selected_motion_clip} (armed) /"
+            f"{self.num_motion_clips - 1}"
+        )
+        return True
+
     def reset(self):
+        self._reset_runtime_state(default_pose_mode=False)
+
+    def _reset_runtime_state(self, default_pose_mode: bool):
         self._frame = 0
         self._prev_pd = None
         self._prev_prev_pd = None
@@ -178,7 +225,19 @@ class ProtoMotionsTrackerPolicy(Policy):
         self._prev_actions = np.zeros(self.num_actions, dtype=np.float32)
         self._motion_done = False
         self._paused = False
-        self._default_pose_mode = False
+        self._default_pose_mode = bool(default_pose_mode)
+        self._pending_motion_clip = None
+
+    def _apply_pending_motion_switch(self) -> bool:
+        """Apply an armed motion selection before motion start/reset."""
+        if self._pending_motion_clip is None:
+            return False
+
+        if self._motion_manager.set_active_index(self._pending_motion_clip):
+            self._player = self._motion_manager.active_player
+
+        self._pending_motion_clip = None
+        return True
 
     def reset_alignment(self):
         self._heading_offset = None
@@ -191,6 +250,8 @@ class ProtoMotionsTrackerPolicy(Policy):
                 self._motion_done = True
         for cmd in commands or []:
             if cmd in ("[MOTION_RESET]", "[MOTION_FADE_IN]"):
+                self._apply_pending_motion_switch()
+                self.reset_alignment()
                 self.reset()
 
     def get_observation(self, env_data, ctrl_data):

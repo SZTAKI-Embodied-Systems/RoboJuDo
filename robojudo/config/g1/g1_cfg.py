@@ -363,9 +363,11 @@ class g1_protomotions_tracker(RlPipelineCfg):
             triggers={
                 "r": "[MOTION_RESET]",
                 "i": "[SIM_REBORN]",
-                "o": "[SHUTDOWN]",
-                "<": "[MOTION_FADE_IN]",
-                ">": "[MOTION_FADE_OUT]",
+                "a": "[SHUTDOWN]",
+                "x": "[MOTION_FADE_IN]",
+                "b": "[MOTION_FADE_OUT]",
+                "n": "[MOTION_PREV]",
+                "m": "[MOTION_NEXT]",
             },
         ),
     ]
@@ -385,15 +387,23 @@ class g1_protomotions_tracker_real(g1_protomotions_tracker):
     """
 
     env: G1RealEnvCfg = G1RealEnvCfg(
-        env_type="UnitreeCppEnv",
+        env_type="UnitreeEnv",
         unitree=G1UnitreeCfg(
-            net_if="eth0",
+            net_if="enx2887ba59bf0a",
         ),
         born_place_align=False,
     )
     ctrl: list[UnitreeCtrlCfg] = [
-        UnitreeCtrlCfg(),
-    ]
+        UnitreeCtrlCfg(
+            triggers = {
+            "A": "[SHUTDOWN]",
+            "X": "[MOTION_FADE_IN]",
+            "B": "[MOTION_FADE_OUT]",
+            "Y": "[MOTION_RESET]",
+            "Up": "[MOTION_PREV]",
+            "Down": "[MOTION_NEXT]",
+        # Note: combo keys supported: "L1+R1+A": "[TEST]",
+    })]
     do_safety_check: bool = True
 
 
