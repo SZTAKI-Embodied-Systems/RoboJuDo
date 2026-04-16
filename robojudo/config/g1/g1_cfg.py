@@ -1,5 +1,6 @@
 from robojudo.config import cfg_registry
 from robojudo.controller.ctrl_cfgs import (
+    ApiCtrlCfg,  # noqa: F401
     JoystickCtrlCfg,  # noqa: F401
     KeyboardCtrlCfg,  # noqa: F401
     UnitreeCtrlCfg,  # noqa: F401
@@ -358,7 +359,7 @@ class g1_protomotions_tracker(RlPipelineCfg):
         born_place_align=False,
         random_heading=True,
     )
-    ctrl: list[KeyboardCtrlCfg] = [
+    ctrl: list[KeyboardCtrlCfg | ApiCtrlCfg] = [
         KeyboardCtrlCfg(
             triggers={
                 "r": "[MOTION_RESET]",
@@ -370,6 +371,7 @@ class g1_protomotions_tracker(RlPipelineCfg):
                 "m": "[MOTION_NEXT]",
             },
         ),
+        ApiCtrlCfg(),
     ]
 
     policy: ProtoMotionsTrackerPolicyCfg = ProtoMotionsTrackerPolicyCfg()
@@ -393,7 +395,7 @@ class g1_protomotions_tracker_real(g1_protomotions_tracker):
         ),
         born_place_align=False,
     )
-    ctrl: list[UnitreeCtrlCfg] = [
+    ctrl: list[UnitreeCtrlCfg | ApiCtrlCfg] = [
         UnitreeCtrlCfg(
             triggers = {
             "A": "[SHUTDOWN]",
@@ -403,7 +405,9 @@ class g1_protomotions_tracker_real(g1_protomotions_tracker):
             "Up": "[MOTION_PREV]",
             "Down": "[MOTION_NEXT]",
         # Note: combo keys supported: "L1+R1+A": "[TEST]",
-    })]
+    }),
+        ApiCtrlCfg(),
+    ]
     do_safety_check: bool = True
 
 

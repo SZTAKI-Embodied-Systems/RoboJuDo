@@ -146,3 +146,88 @@ G1BeyondmimicCtrlCfg(
   motion_name="dance1_subject2", # only when policy: use_motion_from_model=False
 )
 ```
+
+## [Controller](#controller) > [ApiCtrl](#controller--apictrl)
+
+`ApiCtrl` is the controller that receives COMMANDS from API requests.
+It runs an in-process FastAPI server in a daemon thread so commands can be sent
+programmatically from any HTTP client.
+
+script:
+  - [api_ctrl.py](../robojudo/controller/api_ctrl.py)
+
+### Request schema
+
+```
+POST <path>          (default: /command)
+Content-Type: application/json
+
+{"command": "<COMMAND_NAME>", "passkey": "<PASSKEY>"}
+{"command": "<COMMAND_NAME>", "arg": <integer>, "passkey": "<PASSKEY>"}
+```
+
+The `arg` field is **required** for commands listed in `command_args` (e.g.
+`[MOTION_SET]`) and **forbidden** for all other commands.
+The `passkey` field is **required** for every request and must match
+`ApiCtrlCfg.passkey`.
+
+### Response
+
+```json
+{"status": "ok", "command": "[MOTION_SET],18"}
+```
+
+HTTP `401` is returned when passkey is missing or invalid.
+HTTP `422` is returned when the command is not in `allowed_commands`, the `arg`
+is required but missing, or the `arg` is disallowed. HTTP `503` is returned
+when the queue is full.
+
+### Config
+
+`command`: `list` of COMMANDS emitted when valid POST requests arrive.  The
+string format is identical to what `KeyboardCtrl` and `JoystickCtrl` produce,
+for example `[SHUTDOWN]` or `[MOTION_SET],18`.
+
+`command_args`: maps a command name to either `None` (all args accepted) or a
+list of allowed integer values. If a command appears in `command_args`, the
+`arg` field is **required** and must match (or be allowed if `None`).
+Commands not listed in `command_args` must be sent without an `arg` field.
+
+**Example `ApiCtrlCfg`:**
+```python
+ApiCtrlCfg(
+    host="0.0.0.0",
+    port=8000,
+    path="/command",
+  passkey="CHANGE_ME",
+    allowed_commands=[
+        "[SHUTDOWN]",
+        "[MOTION_RESET]",
+        "[MOTION_FADE_IN]",
+        "[MOTION_FADE_OUT]",
+        "[MOTION_SET]",
+    ],
+    command_args={
+        "[MOTION_SET]": None,  # None = all args accepted (default)
+        # "[MOTION_SET]": list(range(10)),  # Restrict to clips 0–9
+    },
+)
+```
+
+**Example POST requests:**
+```bash
+# No argument — fires [SHUTDOWN]
+curl -sX POST http://localhost:8000/command \
+     -H 'Content-Type: application/json' \
+  -d '{"command": "[SHUTDOWN]", "passkey": "CHANGE_ME"}'
+
+# Integer argument — fires [MOTION_SET],18
+curl -sX POST http://localhost:8000/command \
+     -H 'Content-Type: application/json' \
+  -d '{"command": "[MOTION_SET]", "arg": 18, "passkey": "CHANGE_ME"}'
+```
+
+See `g1_protomotions_tracker` in
+[g1_cfg.py](../robojudo/config/g1/g1_cfg.py) for a full pipeline example that
+combines `KeyboardCtrl` and `ApiCtrl`.
+```
