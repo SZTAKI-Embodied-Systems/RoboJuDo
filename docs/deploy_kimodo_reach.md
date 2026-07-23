@@ -19,11 +19,21 @@ and the first v5 hardware run:
   the stand hand position, then straight down — no diagonal drop across the
   thigh. Ends holding the exact start pose. 16.3 s.
 
-### `kimodo_reach_v10.pt` (recommended)
+### `kimodo_reach_v10v9.pt` (recommended — A/B switchable)
 
 | Index | Clip | Notes |
 |---|---|---|
-| 0 | `reach_v10` | **table-safe raised approach, grasp dwell, hands clear of legs — demo this** (16.3 s) |
+| 0 | `reach_v10` | **+10 cm raised grasp phase (hardware compensation) — demo this** |
+| 1 | `reach_v9` | same motion without the 10 cm raise, for comparison |
+
+Switch clips with gamepad Up/Down (then X to start), or `[MOTION_SET]` with
+the index over the command API. Both clips are 16.3 s with identical timing.
+
+### `kimodo_reach_v10.pt` (single clip, same as index 0 above)
+
+| Index | Clip | Notes |
+|---|---|---|
+| 0 | `reach_v10` | table-safe raised approach, grasp dwell, hands clear of legs (16.3 s) |
 
 ### `kimodo_reach_v5.pt` (superseded — approach sweeps at table height)
 
