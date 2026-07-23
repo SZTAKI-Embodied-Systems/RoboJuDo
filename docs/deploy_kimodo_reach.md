@@ -5,17 +5,27 @@ text-to-motion export (stand → arm reach to a ~0.9 m bottle → hold, static b
 They run with the standard tracker pipeline — nothing else in the repo is changed
 and `g1_bones_seed_selection.pt` is untouched.
 
-**Use `kimodo_reach_v2.pt`.** The first hardware test of the v1 clip looked "messy":
-28 s with ~15 s of near-static time, during which the tracker's micro-adjustments
-(feet shuffling, slow creep) dominate what you see. v2 is the same poses retimed to
-17.3 s — dead time compressed, reach brisk — matching the pace of the stock demo
-clips (box/salsa), which is what makes those look crisp.
+**Use `kimodo_reach_v5.pt`.** Built on the v2 retiming after sim review of v2-v4:
 
-### `kimodo_reach_v2.pt` (recommended)
+- the approach no longer arcs up-then-down onto the bottle — the hand travels
+  straight to the grasp pose at constant height;
+- **3 s dwell at the grasp point** before the lift (time to close a gripper);
+- start/end stand pose holds the hands ~8 cm further out — the original frame-0
+  pose pressed the wrists into the hips (1 mm penetration in the reference itself);
+- the clip ends by blending back to the exact start pose and holding it (no flick,
+  no drift). 16.3 s total.
+
+### `kimodo_reach_v5.pt` (recommended)
 
 | Index | Clip | Notes |
 |---|---|---|
-| 0 | `reach_v2` | **retimed + bias-compensated — demo this** (17.3 s) |
+| 0 | `reach_v5` | **straight approach, grasp dwell, hands clear of legs — demo this** (16.3 s) |
+
+### `kimodo_reach_v2.pt` (superseded)
+
+| Index | Clip | Notes |
+|---|---|---|
+| 0 | `reach_v2` | retimed + bias-compensated (17.3 s) — approach arcs up/down, no grasp dwell |
 | 1 | `reach_v1` | original-timing compensated clip, comparison (27.8 s) |
 
 ### `kimodo_reach_motions.pt` (v1, kept for reference)
@@ -34,7 +44,7 @@ high-frequency wrist jitter below the stock point-hold clip.
 
 ```bash
 python scripts/run_tracker_pipeline.py -c g1_protomotions_tracker_real \
-    --motion-path assets/motions/g1/kimodo_reach_v2.pt --motion-index 0
+    --motion-path assets/motions/g1/kimodo_reach_v5.pt --motion-index 0
 ```
 
 **Start from a settled stand with a single X press.** `[MOTION_FADE_IN]` and
@@ -42,7 +52,7 @@ python scripts/run_tracker_pipeline.py -c g1_protomotions_tracker_real \
 immediately. Do NOT "fade in, wait, then reset": with v2's short intro the second
 command lands mid-reach and snaps the arm down through the thigh. Let the robot
 balance quietly for several seconds, then press X once. To replay, wait for the
-clip to finish (robot returns to stand), then press X again.
+clip to finish (v5 returns to and holds the exact start stand), then press X again.
 
 Controls unchanged: Up/Down = clip index, X = start motion, V = return to standing,
 R1 + A = damping / emergency stop.
@@ -53,7 +63,8 @@ R1 + A = damping / emergency stop.
   tracker policy carries action history — starting from an unsettled state lands in a
   degraded mode where the arm hugs the body and the reach falls short. If the reach
   looks wrong: V, let it stand quietly a few seconds, X again.
-- The **wide, toe-out stance is in the reference itself** (Kimodo export), not a
-  malfunction — feet ~0.32 m apart, left foot turned out ~23°.
+- A **moderately wide stance is normal** — v5's reference legs are the G1 default
+  stand (feet 0.24 m), but the tracker picks its own stance, ~0.25–0.28 m. (The
+  original Kimodo export's 0.32 m toe-out terpesz is already edited out.)
 - If reaching over a real table: the reaching wrist clears 0.75 m at the top.
 - First run: spotter recommended, table area clear.
