@@ -5,7 +5,7 @@ text-to-motion export (stand → arm reach to a ~0.9 m bottle → hold, static b
 They run with the standard tracker pipeline — nothing else in the repo is changed
 and `g1_bones_seed_selection.pt` is untouched.
 
-**Use `kimodo_reach_v9.pt`.** Built on the v2 retiming after sim review of v2-v4
+**Use `kimodo_reach_v10.pt`.** Built on the v2 retiming after sim review of v2-v4
 and the first v5 hardware run:
 
 - **table-safe approach**: the hand first rises beside the body to almost grasp
@@ -19,11 +19,11 @@ and the first v5 hardware run:
   the stand hand position, then straight down — no diagonal drop across the
   thigh. Ends holding the exact start pose. 16.3 s.
 
-### `kimodo_reach_v9.pt` (recommended)
+### `kimodo_reach_v10.pt` (recommended)
 
 | Index | Clip | Notes |
 |---|---|---|
-| 0 | `reach_v9` | **table-safe raised approach, grasp dwell, hands clear of legs — demo this** (16.3 s) |
+| 0 | `reach_v10` | **table-safe raised approach, grasp dwell, hands clear of legs — demo this** (16.3 s) |
 
 ### `kimodo_reach_v5.pt` (superseded — approach sweeps at table height)
 
@@ -54,7 +54,7 @@ high-frequency wrist jitter below the stock point-hold clip.
 
 ```bash
 python scripts/run_tracker_pipeline.py -c g1_protomotions_tracker_real \
-    --motion-path assets/motions/g1/kimodo_reach_v9.pt --motion-index 0
+    --motion-path assets/motions/g1/kimodo_reach_v10.pt --motion-index 0
 ```
 
 **Start from a settled stand with a single X press.** `[MOTION_FADE_IN]` and
