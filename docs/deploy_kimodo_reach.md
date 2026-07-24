@@ -5,7 +5,34 @@ text-to-motion export (stand → arm reach to a ~0.9 m bottle → hold, static b
 They run with the standard tracker pipeline — nothing else in the repo is changed
 and `g1_bones_seed_selection.pt` is untouched.
 
-**Use `kimodo_reach_v10.pt`.** Built on the v2 retiming after sim review of v2-v4
+**Use `kimodo_reach_v11v10.pt`, clip 0.** v11 fixes the two issues seen in the
+first v10 hardware run (pre-grasp "adjustment" wiggle; the approach tossing the
+bottle before the fingers closed):
+
+- **straight-line grasp approach**: the hand goes waypoint → a pregrasp pose
+  10 cm straight behind the grasp point (same height, final wrist orientation),
+  then pushes straight along +x onto the bottle over ~1.2 s. No sideways sweep
+  at bottle height, no orientation blending near the bottle — achieved sim path
+  stays in a 3 mm lateral band. Bottle placement only has to be on the approach
+  line;
+- **arrival 0.4 s before the hand close**: the hand settles on the grasp pose at
+  5.6 s; the manipulation stack's tactile close starts at 6.0 s (`grasp_at_s`).
+  Total clip length and the grasp/lift/set-down timeline are unchanged (16.3 s,
+  dwell through 8.4 s), so the existing hand choreography stays valid;
+- everything else (10 cm raised grasp phase, table-safe height, stand-pose leg
+  clearance, leg-safe outside return) is inherited from v10.
+
+### `kimodo_reach_v11v10.pt` (recommended — A/B switchable)
+
+| Index | Clip | Notes |
+|---|---|---|
+| 0 | `reach_v11` | **straight pregrasp approach + v10 raise — demo this** |
+| 1 | `reach_v10` | previous clip (forward-sweep approach), fallback/comparison |
+
+Switch clips with gamepad Up/Down (then X to start), or `[MOTION_SET]` with
+the index over the command API. Both clips are 16.3 s with identical timing.
+
+**v10 (superseded by v11).** Built on the v2 retiming after sim review of v2-v4
 and the first v5 hardware run:
 
 - **table-safe approach**: the hand first rises beside the body to almost grasp
@@ -19,15 +46,12 @@ and the first v5 hardware run:
   the stand hand position, then straight down — no diagonal drop across the
   thigh. Ends holding the exact start pose. 16.3 s.
 
-### `kimodo_reach_v10v9.pt` (recommended — A/B switchable)
+### `kimodo_reach_v10v9.pt` (superseded — A/B v10 vs v9)
 
 | Index | Clip | Notes |
 |---|---|---|
-| 0 | `reach_v10` | **+10 cm raised grasp phase (hardware compensation) — demo this** |
+| 0 | `reach_v10` | +10 cm raised grasp phase (hardware compensation) |
 | 1 | `reach_v9` | same motion without the 10 cm raise, for comparison |
-
-Switch clips with gamepad Up/Down (then X to start), or `[MOTION_SET]` with
-the index over the command API. Both clips are 16.3 s with identical timing.
 
 ### `kimodo_reach_v10.pt` (single clip, same as index 0 above)
 
@@ -64,7 +88,7 @@ high-frequency wrist jitter below the stock point-hold clip.
 
 ```bash
 python scripts/run_tracker_pipeline.py -c g1_protomotions_tracker_real \
-    --motion-path assets/motions/g1/kimodo_reach_v10.pt --motion-index 0
+    --motion-path assets/motions/g1/kimodo_reach_v11v10.pt --motion-index 0
 ```
 
 **Start from a settled stand with a single X press.** `[MOTION_FADE_IN]` and
